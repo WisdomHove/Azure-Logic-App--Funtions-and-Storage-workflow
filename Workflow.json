@@ -1,0 +1,130 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "If_email_has_attachments_and_key_subject_phrase": {
+                "actions": {
+                    "Call_RemoveHTMLFunction_to_clean_email_body": {
+                        "inputs": {
+                            "body": {
+                                "emailBody": "@triggerBody()?['body']"
+                            },
+                            "function": {
+                                "id": "/subscriptions/01649a75-9ad9-4710-9298-e2eac4e1a893/resourceGroups/LA-Tutorial-RG/providers/Microsoft.Web/sites/emailhtmlcleaner/functions/RemoveHTMLFunction"
+                            }
+                        },
+                        "runAfter": {},
+                        "type": "Function"
+                    },
+                    "Create_blob_for_email_body": {
+                        "inputs": {
+                            "body": "@body('Call_RemoveHTMLFunction_to_clean_email_body')",
+                            "headers": {
+                                "ReadFileMetadataFromServer": true
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent('attachmentstoragewizy'))}/files",
+                            "queries": {
+                                "folderPath": "/attachments",
+                                "name": "@triggerBody()?['from']",
+                                "queryParametersSingleEncoded": true
+                            }
+                        },
+                        "runAfter": {
+                            "Call_RemoveHTMLFunction_to_clean_email_body": [
+                                "Succeeded"
+                            ]
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        },
+                        "type": "ApiConnection"
+                    }
+                },
+                "expression": {
+                    "and": [
+                        {
+                            "equals": [
+                                "@triggerBody()?['hasAttachments']",
+                                true
+                            ]
+                        }
+                    ]
+                },
+                "runAfter": {},
+                "type": "If"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "When_a_new_email_arrives_(V3)": {
+                "inputs": {
+                    "fetch": {
+                        "method": "get",
+                        "pathTemplate": {
+                            "template": "/v3/Mail/OnNewEmail"
+                        },
+                        "queries": {
+                            "fetchOnlyWithAttachment": true,
+                            "folderPath": "Inbox",
+                            "importance": "Any",
+                            "includeAttachments": true,
+                            "subjectFilter": "Business Analyst 2 #423501"
+                        }
+                    },
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['office365']['connectionId']"
+                        }
+                    },
+                    "subscribe": {
+                        "body": {
+                            "NotificationUrl": "@{listCallbackUrl()}"
+                        },
+                        "method": "post",
+                        "pathTemplate": {
+                            "template": "/GraphMailSubscriptionPoke/$subscriptions"
+                        },
+                        "queries": {
+                            "fetchOnlyWithAttachment": true,
+                            "folderPath": "Inbox",
+                            "importance": "Any"
+                        }
+                    }
+                },
+                "splitOn": "@triggerBody()?['value']",
+                "type": "ApiConnectionNotification"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "azureblob": {
+                    "connectionId": "/subscriptions/01649a75-9ad9-4710-9298-e2eac4e1a893/resourceGroups/LA-Tutorial-RG/providers/Microsoft.Web/connections/azureblob-2",
+                    "connectionName": "azureblob-2",
+                    "id": "/subscriptions/01649a75-9ad9-4710-9298-e2eac4e1a893/providers/Microsoft.Web/locations/centralus/managedApis/azureblob"
+                },
+                "office365": {
+                    "connectionId": "/subscriptions/01649a75-9ad9-4710-9298-e2eac4e1a893/resourceGroups/LA-Tutorial-RG/providers/Microsoft.Web/connections/office365",
+                    "connectionName": "office365",
+                    "id": "/subscriptions/01649a75-9ad9-4710-9298-e2eac4e1a893/providers/Microsoft.Web/locations/centralus/managedApis/office365"
+                }
+            }
+        }
+    }
+}
